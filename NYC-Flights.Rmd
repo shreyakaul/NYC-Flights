@@ -1,7 +1,9 @@
 ---
-title: "Proj_BIOST"
+title: "NYC Flights"
 author: "Shreya Kaul"
-output: pdf_document
+output:
+  html_document:
+    df_print: paged
 ---
 
 The NYC Flights dataset gives the data on all the flights that departed New York's airports (i.e. JFK, LGA or EWR) in 2013. The combined the data about the flights and the weather gives the information about the scheduled and actual date and time of departure,origin and destination airports, scheduled and actual date and time of arrival, and time difference between actual and scheduled time of departure and arrival. It also gives the data about the weather condition at that time.\newline  
