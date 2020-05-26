@@ -1,0 +1,147 @@
+---
+title: "Proj_BIOST"
+author: "Shreya Kaul"
+output: pdf_document
+---
+
+The NYC Flights dataset gives the data on all the flights that departed New York's airports (i.e. JFK, LGA or EWR) in 2013. The combined the data about the flights and the weather gives the information about the scheduled and actual date and time of departure,origin and destination airports, scheduled and actual date and time of arrival, and time difference between actual and scheduled time of departure and arrival. It also gives the data about the weather condition at that time.\newline  
+Number of observation $n$=336776\newline  
+Number of variables $p$=29\newline
+
+Classes created for k-NN - 
+Class 1: If the flight was on time 
+Class 2: If the flight arrived late than the scheduled time.\newline
+
+Features in a dataset (columns) are the variables which give us information based on which analysis can be performed.\newline
+Two features used for this model, $p_1$=wind_speed time and $p_2$=distance\newline
+
+For the purpose of plotting, observations with the values 'NA' are removed and 150 observations are sampled randomly.\newline\newline
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r Setup, message=FALSE}
+# Load standard libraries
+library(tidyverse)
+library(nycflights13)
+library(ggplot2)
+library(MASS)
+library(class)
+library(dplyr)
+library(gmodels)
+```
+
+```{r}
+# Joining the flight and weather data
+flights_weather <- left_join(flights, weather)
+
+# Removing the NA values
+weather_flight <- na.omit(flights_weather)
+```
+```{r}
+summary(weather_flight)
+```
+```{r}
+str(weather_flight)
+```
+```{r}
+head(weather_flight)
+```
+
+```{r}
+hist(weather_flight$arr_delay, main = "Arrival Time Delays", xlab = "Time (in minutes)")
+```
+
+```{r}
+
+# Adding another column in the data frame, 'Class'
+weather_flight$Class <- ifelse(weather_flight$arr_delay <=0,"On-time",
+                               ifelse 
+                               (weather_flight$arr_delay >0,"Late",NA))
+
+# Randomly sampling 150 observations
+set.seed(3)
+weather_flight_rand <- sample(1:nrow(weather_flight),size = 150, replace = FALSE)
+weather_flight_rand_df <- weather_flight[weather_flight_rand,]
+
+# Plotting the graph between distance and wind speed
+gg <- ggplot(weather_flight_rand_df, aes(weather_flight_rand_df$wind_speed, weather_flight_rand_df$distance, color=weather_flight_rand_df$Class)) + geom_point() + labs(title="Delay in arrival of flights based on the wind speed ", x="Wind Speed ", y="Distance Covered") + scale_color_discrete(name="Delay in arrival")
+print(gg)
+```
+
+```{r}
+# Creating a function for plotting of KNN for different values of K
+func_knn <- function(k){
+  
+# Training Data
+train <- rbind(weather_flight_rand_df[1:150,c('wind_speed','distance')])
+
+# Test Data
+test <- expand.grid(x=seq(min(train[,1]-1), max(train[,1]+1),
+                           by=0.5),
+                     y=seq(min(train[,2]-1), max(train[,2]+1), 
+                           by=50))
+
+cl <- factor(c(weather_flight_rand_df$Class[1:150]))
+
+classif <- knn(train=train, test=test, cl = cl, k = k, prob = TRUE)
+
+prob <- attr(classif, "prob")
+
+dataf <- bind_rows(mutate(test,
+                          prob=prob,
+                          cls='On-time',
+                          prob_cls=ifelse(classif==cls,
+                                          1, 0)),
+                  mutate(test,
+                          prob=prob,
+                          cls='Late',
+                          prob_cls=ifelse(classif==cls,
+                                          1, 0)))
+# Plotting KNN
+ggp <- ggplot(dataf) + labs(x='Wind Speed', y='Distance') + ggtitle (paste("Value of K =", as.character(k))) + scale_color_discrete(name="Class") + 
+  geom_point(aes(x=x, y=y, col=cls),
+              data = mutate(test, cls=classif),
+              size=1.2) + 
+  geom_contour(aes(x=x, y=y, z=prob_cls, group=cls, color=cls),
+                bins=2, data = dataf) +
+  geom_point(aes(x=train$wind_speed, y=train$distance, col=cls), size=3, data=data.frame(x=train[,1], y=train[,2], cls=cl))
+print(ggp)
+}
+
+# Calling the function to plot KNN based on multiple values of K
+for(i in seq(1, 75, 5)) {
+  func_knn(i) }
+
+```
+
+```{r}
+# Function to calculate training error
+func_accuracy <- function(k){
+
+train <- rbind(weather_flight_rand_df[1:150,c('wind_speed','distance')])
+
+cl <- factor(c(weather_flight_rand_df$Class[1:150]))
+
+knn_accuracy <- knn(train=train, test=train, cl = cl, k = k)
+
+data_tab <- table(knn_accuracy, cl)
+matr <- as.matrix(data_tab)
+
+# Calculating accuracy 
+accuracy <- sum(diag(matr))/length(cl)
+
+# Calculating error
+train_error <- (1 - accuracy)
+print(paste("Training Error for K =", k, "is ", train_error))
+}
+for(i in seq(1, 75, 5)) {
+  func_accuracy(i)
+  }
+```
+
+Out of all the plots, the plot with $K = 11$ neither has high bias nor high variance. (It is neither too wiggly/curvy nor does one class cover the whole plot) Considering the bias-variance trade off, when either variance or the bias is too high, test error increases. So keeping that in mind, based on the plots created in the think $K = 11$ will give the smallest expected test error.
+
+```{r}
+summary(lm(weather_flight$arr_delay~weather_flight$temp+weather_flight$dewp+weather_flight$humid+weather_flight$wind_dir+weather_flight$wind_dir+weather_flight$wind_speed+weather_flight$wind_gust+weather_flight$precip+weather_flight$pressure+weather_flight$visib, weather_flight))
+```
